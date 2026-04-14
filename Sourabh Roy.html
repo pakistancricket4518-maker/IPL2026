@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>CRICLOUNGE — QUALITY CONTROL</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700&display=swap" rel="stylesheet">
+
+<!-- Shaka Player Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.compiled.debug.js"></script>
+
+<style>
+:root {
+  --bg: #0a0f0b; 
+  --surf: rgba(18, 26, 20, 0.75); 
+  --surf2: rgba(26, 38, 29, 0.5); 
+  --bdr: rgba(45, 66, 51, 0.6);
+  --acc: #1a8c35; 
+  --acc2: #d42b2b; 
+  --txt: #e6f0e8; 
+  --muted: #8ba391;
+  --font-main: 'Poppins', sans-serif;
+  --glass-blur: blur(12px) saturate(160%);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  background-image: 
+    radial-gradient(circle at 50% -10%, #1a3a22 0%, transparent 40%),
+    radial-gradient(circle at 0% 100%, #0d1a0f 0%, transparent 30%);
+  color: var(--txt);
+  font-family: var(--font-main);
+  font-weight: 700;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+header {
+  background: var(--surf);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: var(--glass-border);
+  padding: 15px 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky; top: 0; z-index: 100;
+}
+
+.brand { font-size: 22px; letter-spacing: 2px; }
+.brand span { color: var(--acc); text-shadow: 0 0 15px rgba(26, 140, 53, 0.4); }
+
+.wrap { max-width: 1440px; margin: 20px auto; padding: 0 20px; }
+.live-layout { display: grid; grid-template-columns: 1fr 360px; gap: 24px; }
+
+.player-card, .channels-section {
+  background: var(--surf);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+  position: relative;
+}
+
+.video-wrap {
+  width: 100%; aspect-ratio: 16/9; background: #000;
+  position: relative; overflow: hidden;
+}
+
+/* Video Scaling Logic */
+video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.v-stretch video { object-fit: fill !important; }
+.v-zoom video { object-fit: cover !important; }
+.v-padded video { transform: scale(0.9); transition: transform 0.3s ease; }
+
+/* Fullscreen Notch Fill */
+:fullscreen video { width: 100vw; height: 100vh; }
+:-webkit-full-screen video { width: 100vw; height: 100vh; }
+
+.controls-overlay { 
+  position: absolute; 
+  top: 15px; 
+  right: 15px;
+  z-index: 2147483647; 
+  display: flex;
+  gap: 8px;
+  padding-right: env(safe-area-inset-right);
+  padding-top: env(safe-area-inset-top);
+  transition: opacity 0.4s ease, visibility 0.4s;
+  opacity: 1;
+  visibility: visible;
+}
+
+.controls-overlay.shaka-hidden { opacity: 0; visibility: hidden; }
+
+.controls-overlay select {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-family: var(--font-main);
+  font-size: 10px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  outline: none;
+  text-transform: uppercase;
+}
+
+/* Portrait vs Fullscreen visibility */
+#pad-regulator, #aspect-regulator { display: none; }
+.is-fullscreen #pad-regulator, 
+.is-fullscreen #aspect-regulator { display: block; }
+
+.player-infobar { padding: 24px; background: rgba(0,0,0,0.25); }
+#current-ch-name { font-size: 24px; margin-bottom: 4px; color: var(--txt); }
+.ch-meta { font-size: 11px; color: var(--acc); letter-spacing: 2px; opacity: 0.8; }
+
+.ch-list-head { padding: 12px 20px; background: var(--surf2); border-bottom: var(--glass-border); font-size: 12px; }
+.ch-list { overflow-y: auto; max-height: 480px; }
+.ch-list::-webkit-scrollbar { width: 4px; }
+.ch-list::-webkit-scrollbar-thumb { background: var(--acc); border-radius: 10px; }
+
+.ch-row {
+  display: flex; align-items: center; gap: 15px; padding: 10px 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  cursor: pointer; transition: all 0.3s ease;
+  border-right: 5px solid transparent;
+}
+
+.ch-row:hover { background: rgba(255, 255, 255, 0.05); }
+.ch-row.active {
+  background: linear-gradient(-90deg, rgba(26, 140, 53, 0.25) 0%, transparent 100%);
+  border-right: 5px solid var(--acc);
+}
+
+.ch-row-art {
+  width: 60px; height: 40px; background: rgba(255,255,255,0.03);
+  border-radius: 8px; padding: 4px; border: 1px solid rgba(255,255,255,0.08);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+
+.ch-row-art img { width: 100%; height: 100%; object-fit: contain; }
+.ch-name { font-size: 13px; flex-grow: 1; }
+
+@media(max-width:1024px) { .live-layout { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">CRIC<span>LOUNGE</span></div>
+</header>
+
+<div class="wrap">
+  <div class="live-layout">
+    <div class="player-section">
+      <div class="player-card">
+        <div class="video-wrap" id="v-container">
+          <video id="video" controls autoplay playsinline></video>
+          <div class="controls-overlay" id="custom-controls">
+            <select id="pad-regulator">
+                <option value="none">FIT SCREEN</option>
+                <option value="padded">PADDED</option>
+            </select>
+            <select id="aspect-regulator">
+              <option value="default">ORIGINAL</option>
+              <option value="stretch">STRETCH</option>
+              <option value="zoom">ZOOM 16:9</option>
+            </select>
+            <select id="quality-regulator">
+              <option value="auto">AUTO QUALITY</option>
+            </select>
+          </div>
+        </div>
+        <div class="player-infobar">
+          <h2 id="current-ch-name">SELECT_CHANNEL</h2>
+          <p class="ch-meta">Pakistan Super League 2026</p>
+        </div>
+      </div>
+    </div>
+    <div class="channels-section">
+      <div class="ch-list-head">LIVE_FEED</div>
+      <div class="ch-list" id="channel-list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const CHANNELS = [
+    { id: 2, name: "Worldwide Stream", url: "https://dck1-ac-live.cdn.indazn.com/out/v1/761f422bb93edb7b/7ab472544698416388922e7379fb5803/index.mpd?start=2026-04-14T23%3A50%3A00%2B10%3A00&end=2026-04-15T05%3A00%3A00%2B10%3A00&dazn-token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InV1aWRfMSJ9.eyJwYXRocyI6WyIvb3V0L3YxLzc2MWY0MjJiYjkzZWRiN2IvN2FiNDcyNTQ0Njk4NDE2Mzg4OTIyZTczNzlmYjU4MDMiXSwiZXhjIjpbXSwiaGVhZGVycyI6WyJ1c2VyLWFnZW50Il0sImNvIjp0cnVlLCJpcCI6ZmFsc2UsImFzbiI6WyIzOTYzNTYiXSwiaW50c2lnIjoiV2VTQVNmb3R6LWtUVDV2ZWNBUEdMdFJENjk4MlNrNTFQZk9QOGxkUDZUQSIsImlhdCI6MTc3NjE3NDcyNiwiZXhwIjoxNzc2MjYxMTI2fQ.4EVQ1fqWfhZRk4csMb-PWpJ7ok4Rwkq9x0mLX-cWVVs", key: "daaf04a188635e5581160767cab99825:d73f82c62a647ae818059b79e4cc92d6", logo: "https://eapi.pcloud.com/getpubthumb?code=XZnKkvZzlzsJg3FrQLNpWbMc0YmDV3bzWWV&linkpassword=&size=2460x816&crop=0&type=auto" },
+  ];
+
+  let player;
+  let hideTimer;
+  const video = document.getElementById('video');
+  const overlay = document.getElementById('custom-controls');
+  const container = document.getElementById('v-container');
+
+  async function initShaka() {
+    shaka.polyfill.installAll();
+    if (!shaka.Player.isBrowserSupported()) {
+      alert('Browser not supported!');
+      return;
+    }
+
+    player = new shaka.Player(video);
+    player.addEventListener('error', (e) => console.error('Error code', e.detail.code, 'object', e.detail));
+    player.addEventListener('variantchanged', updateQualityMenu);
+
+    // Auto-hide logic
+    const resetTimer = () => {
+      overlay.classList.remove('shaka-hidden');
+      clearTimeout(hideTimer);
+      if (document.fullscreenElement) {
+        hideTimer = setTimeout(() => overlay.classList.add('shaka-hidden'), 3000);
+      }
+    };
+
+    video.addEventListener('touchstart', resetTimer);
+    video.addEventListener('mousedown', resetTimer);
+
+    document.addEventListener('fullscreenchange', () => {
+      if (document.fullscreenElement) {
+        container.classList.add('is-fullscreen');
+        if (screen.orientation?.lock) screen.orientation.lock('landscape').catch(() => {});
+        resetTimer();
+      } else {
+        container.classList.remove('is-fullscreen');
+        overlay.classList.remove('shaka-hidden');
+        clearTimeout(hideTimer);
+        if (screen.orientation?.unlock) screen.orientation.unlock();
+      }
+    });
+
+    renderChannels();
+    selectChannel(0);
+  }
+
+  async function selectChannel(index) {
+    const ch = CHANNELS[index];
+    const config = { drm: { clearKeys: {} } };
+    
+    if (ch.key && ch.key.includes(':')) {
+      const [kid, key] = ch.key.split(':');
+      config.drm.clearKeys[kid.replace(/-/g, '')] = key;
+    }
+
+    player.configure(config);
+    try {
+      await player.load(ch.url);
+      document.getElementById('current-ch-name').innerText = ch.name;
+      document.querySelectorAll('.ch-row').forEach((el, i) => el.classList.toggle('active', i === index));
+      video.play();
+    } catch (e) {
+      console.error('Load failed', e);
+    }
+  }
+
+  function updateQualityMenu() {
+    const menu = document.getElementById('quality-regulator');
+    const tracks = player.getVariantTracks();
+    menu.innerHTML = '<option value="auto">AUTO QUALITY</option>';
+    
+    // Sort tracks by height
+    tracks.sort((a, b) => b.height - a.height);
+    
+    tracks.forEach(track => {
+      const bitrate = (track.bandwidth / 1000000).toFixed(1) + ' Mbps';
+      const opt = document.createElement('option');
+      opt.value = track.id;
+      opt.innerText = `${track.height}p [${bitrate}]`;
+      menu.appendChild(opt);
+    });
+  }
+
+  // Quality Selection
+  document.getElementById('quality-regulator').addEventListener('change', (e) => {
+    if (e.target.value === 'auto') {
+      player.configure({ abr: { enabled: true } });
+    } else {
+      player.configure({ abr: { enabled: false } });
+      const track = player.getVariantTracks().find(t => t.id == e.target.value);
+      player.selectVariantTrack(track, true);
+    }
+  });
+
+  // Aspect/Padding Selection
+  document.getElementById('aspect-regulator').addEventListener('change', (e) => {
+    container.classList.remove('v-stretch', 'v-zoom');
+    if (e.target.value !== 'default') container.classList.add('v-' + e.target.value);
+  });
+
+  document.getElementById('pad-regulator').addEventListener('change', (e) => {
+    container.classList.toggle('v-padded', e.target.value === 'padded');
+  });
+
+  function renderChannels() {
+    const list = document.getElementById('channel-list');
+    list.innerHTML = CHANNELS.map((ch, index) => `
+      <div class="ch-row" onclick="selectChannel(${index})">
+        <div class="ch-row-art"><img src="${ch.logo}" alt="${ch.name}"></div>
+        <div class="ch-name" style="font-size:14px;">${ch.name}</div>
+      </div>
+    `).join('');
+  }
+
+  document.addEventListener('DOMContentLoaded', initShaka);
+</script>
+</body>
+</html>
+
